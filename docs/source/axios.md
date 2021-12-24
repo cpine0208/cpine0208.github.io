@@ -43,8 +43,8 @@ function createInstance(defaultConfig) {
 ```
 * 第二行，创建一个上下文环境；
 * 第三行，通过bind[^2]函数创建一个实例，可以直接用axios()发起请求；
-* 第四行，挂载Axios上定义的原型对象，可以使用axios.get()等方法发起请求；
-* 第五行，挂载上下文环境，可以访问上下文；
+* 第四行，通过extend[^3]挂载Axios上定义的原型对象，可以使用axios.get()等方法发起请求；
+* 第五行，通过extend[^3]挂载上下文环境，可以访问上下文；
 * 第六行，定义create函数，可以创建实例；
 
 这里为了实现axios('url',config)这种形式的调用，第二行调用bind函数，是一个闭包，返回的是一个函数。调用axios('url',config)其实就是调用context.request('url',config)。
@@ -69,5 +69,44 @@ function bind(fn, thisArg) {
   };
 };
 ```
-方法创建一个闭包函数；保存调用的函数和this指向的上下文；在返回的闭包函数被调用时，调用fn.apply(thisArg, args)执行函数；
+方法创建一个闭包函数；保存调用的函数（第一个参数）和this指向的上下文（第二个参数）；在返回的闭包函数被调用时，调用fn.apply(thisArg, args)执行函数；
 
+[^3]: extend函数解析（lib/utils.js）
+```
+function extend(a, b, thisArg) {
+  forEach(b, function assignValue(val, key) {
+    if (thisArg && typeof val === 'function') {
+      a[key] = bind(val, thisArg);
+    } else {
+      a[key] = val;
+    }
+  });
+  return a;
+}
+```
+将对象b中的属性扩展到对象a中，如果b中的属性是一个function，则通过bind函数为其绑定上下文thisArg参数。
+[^4]: forEach函数解析（lib/utils.js）
+```
+function forEach(obj, fn) {
+  if (obj === null || typeof obj === 'undefined') {
+    return;
+  }
+
+  if (typeof obj !== 'object') {
+    obj = [obj];
+  }
+
+  if (isArray(obj)) {
+    for (var i = 0, l = obj.length; i < l; i++) {
+      fn.call(null, obj[i], i, obj);
+    }
+  } else {
+    for (var key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        fn.call(null, obj[key], key, obj);
+      }
+    }
+  }
+}
+```
+兼容数组和对象的for循环
